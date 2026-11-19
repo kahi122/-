@@ -1,0 +1,462 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ガンバレジェンズ 配列表</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;padding:10px;background:#101827;color:white;
+ font-family:Arial,"Noto Sans JP",sans-serif;
+}
+h1{text-align:center;font-size:21px;margin:8px 0 14px}
+h2{font-size:16px;margin:5px 0 10px}
+.panel{
+ background:#1e293b;padding:10px;
+ border-radius:10px;margin-bottom:10px;
+}
+.columns{
+ display:grid;grid-template-columns:repeat(6,1fr);gap:5px;
+}
+.select{
+ background:#475569;color:white;
+ padding:9px 2px;font-size:12px;
+}
+.select.active{background:#2563eb}
+#next{font-size:12px;color:#93c5fd;margin:9px 0 0}
+.table-wrap{overflow-x:auto}
+table{
+ border-collapse:collapse;background:#1e293b;
+ min-width:100%;
+}
+th,td{
+ border:1px solid #475569;padding:7px 5px;
+ text-align:center;font-size:11px;
+ min-width:85px;
+}
+th{background:#334155}
+td{overflow-wrap:anywhere}
+.num{min-width:35px;color:#94a3b8}
+.del{
+ background:#dc2626;color:white;
+ padding:4px 6px;font-size:10px;margin-top:4px;
+}
+.search{
+ width:100%;padding:9px;border-radius:7px;
+ background:#0f172a;border:1px solid #64748b;
+ color:white;font-size:14px;
+}
+.filters{
+ display:grid;grid-template-columns:repeat(5,1fr);
+ gap:5px;margin:8px 0;
+}
+.filters button{background:#475569;color:white;padding:7px 2px}
+.filters button.active{background:#2563eb}
+.cards{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+ gap:5px;margin-top:9px;
+}
+.card{
+ background:#334155;color:white;
+ min-height:38px;text-align:center;
+ padding:5px 2px;border:1px solid #475569;
+ border-radius:6px;font-size:11px;line-height:1.3;
+}
+.card small{
+ display:block;color:#cbd5e1;
+ font-size:9px;margin-top:2px;font-weight:normal;
+}
+.rarity-N{border-left:8px solid #94a3b8}
+.rarity-R{border-left:8px solid #60a5fa}
+.rarity-SR{border-left:8px solid #c084fc}
+.rarity-SRPR{border-left:8px solid #c084fc}
+.rarity-LR{border-left:8px solid #fbbf24}
+.rarity-LRPR{border-left:8px solid #fbbf24}
+.rarity-CP{border-left:8px solid #fb7185}
+.tools{display:flex;gap:6px;margin-top:9px}
+.tools button{
+ flex:1;background:#475569;color:white;padding:9px;
+}
+.count{font-size:11px;color:#93c5fd}
+</style>
+</head>
+<body>
+
+<h1>ガンバレジェンズ 配列表</h1>
+
+<!-- 配列表を一番上に表示 -->
+<div class="panel">
+ <h2>配列表（最大12列）</h2>
+
+ <div class="columns" id="columnButtons"></div>
+ <p id="next"></p>
+
+ <div class="table-wrap">
+  <table>
+   <thead id="tableHead"></thead>
+   <tbody id="list"></tbody>
+  </table>
+ </div>
+
+ <p class="count" id="count"></p>
+
+ <div class="tools">
+  <button onclick="undo()">1つ戻す</button>
+  <button onclick="downloadCSV()">CSV保存</button>
+  <button onclick="clearAll()">全消去</button>
+ </div>
+</div>
+
+<!-- カードボタン -->
+<div class="panel">
+ <h2>カード選択</h2>
+
+ <input id="search" class="search"
+  placeholder="カード名・番号で検索"
+  oninput="renderCards()">
+
+ <div class="filters">
+  <button class="active" onclick="setFilter('ALL',this)">全部</button>
+  <button onclick="setFilter('F',this)">F</button>
+  <button onclick="setFilter('A',this)">A</button>
+  <button onclick="setFilter('D',this)">D</button>
+  <button onclick="setFilter('I',this)">I</button>
+ </div>
+
+ <p class="count" id="cardCount"></p>
+ <div class="cards" id="cards"></div>
+</div>
+
+<script>
+
+// カードデータ
+// [番号,タイプ,名前,レアリティ]
+
+const cards=[
+["VR05-001","D","マイス","SR"],
+["VR05-002","A","マイス","R"],
+["VR05-003","F","マイス","N"],
+["VR05-004","D","マイス","N"],
+["VR05-005","D","リド","LR"],
+["VR05-005","D","リド","LRPR"],
+["VR05-006","A","リド","R"],
+["VR05-007","D","リド","N"],
+["VR05-008","A","マオウ","LR"],
+["VR05-008","A","マオウ","LRPR"],
+["VR05-009","D","マオウ","R"],
+["VR05-010","F","マオウ","N"],
+["VR05-011","D","クロスセイバー","LR"],
+["VR05-012","F","クロスセイバー","R"],
+["VR05-013","A","ブレイズ タテガミ","N"],
+["VR05-014","F","デモンズ スパイダー","SR"],
+["VR05-015","D","ギーツⅨ","N"],
+["VR05-016","A","リガドΩ","LR"],
+["VR05-017","D","リガドΩ","R"],
+["VR05-018","F","レインボーガッチャード","LR"],
+["VR04-019","A","レインボーガッチャード","R"],
+["VR05-020","D","ヴァルバラド黒鋼","SR"],
+["VR05-021","F","ヴァルバラド黒鋼","N"],
+["VR05-022","A","ファイヤーガッチャード デイブレイク","N"],
+["VR05-023","I","ニジゴンの卵","R"],
+["VR05-024","D","ゼッツ ハートオブインパクト","R"],
+["VR05-025","F","ノクス ミッドナイトシャドウ","N"],
+["VR05-026","A","ドォーン","N"],
+["VR05-027","D","ゼイン（桜井侑斗）","N"],
+["VR05-028","A","ゼロスリー","SR"],
+["VR05-028","A","ゼロスリー","SRPR"],
+["VR05-029","F","ゼロスリー","N"],
+["VR05-030","D","クウガ グローイング","SR"],
+["VR05-030","D","クウガ グローイング","SRPR"],
+["VR05-031","A","クウガ グローイング","N"],
+["VR05-032","F","龍騎","R"],
+["VR05-033","A","ナイト","N"],
+["VR05-034","D","オーディン","LR"],
+["VR05-034","D","オーディン","LRPR"],
+["VR05-035","A","オーディン","R"],
+["VR05-036","I","金色の羽","R"],
+["VR05-037","F","キックホッパー","SR"],
+["VR05-038","D","キックホッパー","N"],
+["VR05-039","F","パンチホッパー","R"],
+["VR05-040","A","ディケイド","R"],
+["VR05-041","F","ディエンド","N"],
+["VR05-042","D","クウガ マイティ（小野寺）","N"],
+["VR05-043","A","キバーラ","SR"],
+["VR05-044","F","キバーラ","R"],
+["VR05-045","A","W CJゴールドエクストリーム","LR"],
+["VR05-046","D","W CJゴールドエクストリーム","R"],
+["VR05-047","F","アクセルトライアル","N"],
+["VR05-048","A","オーズ タジャドル","R"],
+["VR05-049","F","鎧武 極アームズ","LR"],
+["VR05-049","F","鎧武 極アームズ","LRPR"],
+["VR05-050","D","鎧武 極アームズ","R"],
+["VR05-051","A","バロン レモンエナジー","N"],
+["VR05-052","I","衝突する想い","SR"],
+["VR05-053","F","ゴーストムゲン","SR"],
+["VR05-054","F","ブレイブ ファンタジーLv50","SR"],
+["VR05-055","A","ブレイブ ファンタジーLv50","N"],
+["VR05-056","F","スナイプ シミュレーションLv50","R"],
+["VR05-057","D","レーザー チャンバラLv3","SR"],
+["VR05-058","A","レーザー チャンバラLv3","N"],
+["VR05-059","D","X","N"],
+["VR05-060","A","バイオライダー","SR"],
+["VR05-061","D","ナーゴ ファンタジー","CP"],
+["VR05-062","A","マジェード サンユニコーン","CP"],
+["VR05-063","D","キバーラ","CP"],
+["VR05-064","F","ポッピー ときめきクライシス","CP"],
+["VR05-065","F","ツクヨミ","CP"],
+["VR05-066","F","サウザー","CP"],
+["VR05-067","D","カブト ライダーフォーム","CP"],
+["VR05-068","A","エターナル","CP"],
+["VR05-069","D","ローグ","CP"],
+["VR05-070","F","ZO","CP"]
+];
+
+
+// レアリティ昇順
+const rarityOrder = {
+  N: 1,
+  R: 2,
+  SR: 3,
+  SRPR: 4,
+  LR: 5,
+  LRPR: 6,
+  CP: 7
+};
+
+// レアリティ順 → 同レアリティならカード番号順
+cards.sort((a, b) => {
+  const rarityDiff =
+    rarityOrder[a[3]] - rarityOrder[b[3]];
+
+  if (rarityDiff !== 0) {
+    return rarityDiff;
+  }
+
+  // カード番号の数字部分で比較
+  const numA = parseInt(a[0].split("-")[1], 10);
+  const numB = parseInt(b[0].split("-")[1], 10);
+
+  return numA - numB;
+});
+
+
+// 12列分のデータ
+const KEY="ganba_vr05_12columns";
+const saved=JSON.parse(localStorage.getItem(KEY)||"null");
+
+let data=Array.from({length:12},(_,i)=>
+ saved?.[i]||[]
+);
+
+let column=0;
+let filter="ALL";
+let history=[];
+
+function save(){
+ localStorage.setItem(KEY,JSON.stringify(data));
+}
+
+// 12列の切り替えボタン
+function renderColumnButtons(){
+ const box=document.getElementById("columnButtons");
+ box.innerHTML="";
+
+ for(let i=0;i<12;i++){
+  const btn=document.createElement("button");
+  btn.className="select"+(column===i?" active":"");
+  btn.textContent=(i+1)+"列目";
+  btn.onclick=()=>selectColumn(i);
+  box.appendChild(btn);
+ }
+}
+
+function selectColumn(i){
+ column=i;
+ renderColumnButtons();
+ update();
+}
+
+function setFilter(f,btn){
+ filter=f;
+ document.querySelectorAll(".filters button")
+ .forEach(b=>b.classList.remove("active"));
+ btn.classList.add("active");
+ renderCards();
+}
+
+// カード表示
+function renderCards(){
+ const keyword=document.getElementById("search")
+ .value.toLowerCase();
+
+ const box=document.getElementById("cards");
+ box.innerHTML="";
+
+ const filtered=cards.filter(c=>
+  (filter==="ALL"||c[1]===filter)&&
+  c.join(" ").toLowerCase().includes(keyword)
+ );
+
+ document.getElementById("cardCount").textContent=
+ "表示："+filtered.length+"枚 / 全"+cards.length+"枚";
+
+ filtered.forEach(c=>{
+  const btn=document.createElement("button");
+  btn.className="card rarity-"+c[3];
+  btn.textContent=c[1]+" "+c[2]+" "+c[3];
+
+  const small=document.createElement("small");
+  small.textContent=c[0];
+  btn.appendChild(small);
+
+  btn.onclick=()=>register(c);
+  box.appendChild(btn);
+ });
+}
+
+// 選択中の列に追加
+function register(card){
+ history.push(JSON.stringify(data));
+
+ data[column].push({
+  id:card[0],
+  type:card[1],
+  name:card[2],
+  rarity:card[3]
+ });
+
+ save();
+ update();
+}
+
+// 配列表表示
+function update(){
+ document.getElementById("next").textContent=
+ (column+1)+"列目："+
+ (data[column].length+1)+"枚目に登録";
+
+ const head=document.getElementById("tableHead");
+ head.innerHTML="";
+
+ const hr=document.createElement("tr");
+ const first=document.createElement("th");
+ first.textContent="No.";
+ hr.appendChild(first);
+
+ for(let i=0;i<12;i++){
+  const th=document.createElement("th");
+  th.textContent=(i+1)+"列目";
+  if(i===column)th.style.background="#2563eb";
+  hr.appendChild(th);
+ }
+ head.appendChild(hr);
+
+ const max=Math.max(0,...data.map(x=>x.length));
+ const tbody=document.getElementById("list");
+ tbody.innerHTML="";
+
+ for(let r=0;r<max;r++){
+  const tr=document.createElement("tr");
+
+  const num=document.createElement("td");
+  num.className="num";
+  num.textContent=r+1;
+  tr.appendChild(num);
+
+  for(let c=0;c<12;c++){
+   const td=document.createElement("td");
+   const item=data[c][r];
+
+   if(item){
+    td.textContent=
+     item.type+" "+item.name+" "+item.rarity;
+
+    const small=document.createElement("small");
+    small.style.display="block";
+    small.style.color="#94a3b8";
+    small.textContent=item.id;
+    td.appendChild(small);
+
+    const del=document.createElement("button");
+    del.className="del";
+    del.textContent="削除";
+    del.onclick=()=>removeCard(c,r);
+    td.appendChild(del);
+   }else{
+    td.textContent="－";
+   }
+
+   if(c===column)td.style.background="#253b5a";
+   tr.appendChild(td);
+  }
+
+  tbody.appendChild(tr);
+ }
+
+ document.getElementById("count").textContent=
+ data.map((x,i)=>(i+1)+"列目："+x.length+"枚")
+ .join(" ／ ");
+}
+
+// 削除
+function removeCard(c,r){
+ history.push(JSON.stringify(data));
+ data[c].splice(r,1);
+ save();
+ update();
+}
+
+// 1つ戻す
+function undo(){
+ if(!history.length)return;
+ data=JSON.parse(history.pop());
+ save();
+ update();
+}
+
+// 全消去
+function clearAll(){
+ if(!confirm("12列すべての配列表を消去しますか？"))return;
+ history.push(JSON.stringify(data));
+ data=Array.from({length:12},()=>[]);
+ save();
+ update();
+}
+
+// CSV保存
+function downloadCSV(){
+ const max=Math.max(0,...data.map(x=>x.length));
+ const rows=[["No.",...Array.from({length:12},(_,i)=>(i+1)+"列目")]];
+
+ for(let r=0;r<max;r++){
+  rows.push([
+   r+1,
+   ...data.map(col=>{
+    const x=col[r];
+    return x?x.type+" "+x.name+" "+x.rarity:"";
+   })
+  ]);
+ }
+
+ const csv="\uFEFF"+rows.map(row=>
+  row.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")
+ ).join("\r\n");
+
+ const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement("a");
+ a.href=url;
+ a.download="ガンバレジェンズ_12列配列表.csv";
+ a.click();
+ URL.revokeObjectURL(url);
+}
+
+renderColumnButtons();
+renderCards();
+update();
+
+</script>
+</body>
+</html>
